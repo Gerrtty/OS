@@ -3,7 +3,7 @@
 #include <termios.h>
 #include <unistd.h>
 
-int main(int argc[], char *argv[], char *envp[]) {
+int main(int argc, char *argv[], char *envp[]) {
     char* fileName = argv[1];
     int N = atoi(argv[2]);
 
@@ -12,32 +12,50 @@ int main(int argc[], char *argv[], char *envp[]) {
 
     if (f == NULL) {
         printf("Error in opening file\n");
+        return -1;
     }
 
     int letter;
     int k = 1;
 
-    short flag;
-    while (flag) {
-        for (int i = 0; i < N; i++) {
+    short flag = 1;
+
+    if (N > 0) {
+        while (flag) {
+
+            for (int i = 0; i < N; i++) {
+                letter = getc(f);
+
+                if (letter == EOF) {
+                    flag = 0;
+                    break;
+                }
+
+                putc(letter, stdout);
+
+            }
+
+            if (flag) {
+                int c = readSymbol();
+            }
+            else {
+                putc('\n', stdout);
+            }
+
+        }
+    }
+
+    else {
+        while(1) {
             letter = getc(f);
 
             if (letter == EOF) {
-                flag = 0;
                 break;
             }
 
             putc(letter, stdout);
-
         }
-
-        if (flag) {
-            int c = readSymbol();
-        }
-        else {
-            putc('\n', stdout);
-        }
-
+        putc('\n', stdout);
     }
 
     fclose(f);

@@ -1,9 +1,8 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <termios.h>
 #include <unistd.h>
 
-int main(int argc[], char *argv[], char *envp[]) {
+int main(int argc, char *argv[], char *envp[]) {
     char* fileName = argv[1];
 
     // open file
@@ -12,6 +11,7 @@ int main(int argc[], char *argv[], char *envp[]) {
 
     if (outputFile == NULL) {
         printf("Error in opening file");
+        return -1;
     }
 
     int c;

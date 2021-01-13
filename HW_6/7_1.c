@@ -47,8 +47,7 @@ struct MYFILE {
 };
 
 void println(char* str) {
-    printf(str);
-    printf("\n");
+    printf("%s\n", str);
 }
 
 struct MYFILE get_file(struct MYFILE myfile) {
@@ -150,6 +149,28 @@ int is_system(char* name_file) {
     return 0;
 }
 
+char* get_new_file_path(char* input_dir_path,
+                        char* out_dir_path,
+                        char* abs_file_path) {
+    int len_of_out_directory_path = strlen(out_dir_path);
+    int len_of_input_directory_path = strlen(input_dir_path);
+
+    int local_file_path_len = strlen(abs_file_path) - len_of_input_directory_path;
+
+    char *out_file_path = (char*) malloc(len_of_out_directory_path + local_file_path_len);
+
+    for (int i = 0; i < len_of_out_directory_path; i++) {
+        out_file_path[i] = out_dir_path[i];
+    }
+
+    int h = 0;
+    for (int i = 0; i < local_file_path_len; i++) {
+        out_file_path[len_of_out_directory_path + i] = abs_file_path[len_of_input_directory_path + h++];
+    }
+
+    return out_file_path;
+}
+
 void get_files(char *path, int key) {
 
     const int size = get_files_count_in_dir(path);
@@ -182,34 +203,17 @@ void get_files(char *path, int key) {
     // сортируем
     sort_files(list_files, i, key);
 
-    struct MYFILE list_dirs[size];
-
     for (int j = 0; j < i; j++) {
 
-        char* abs_path = list_files[j].absolut_path;
-
-        int len = strlen(abs_path);
-
-        int len_out = len - len_input_path;
-
-        char result[len_out];
-
-        for (int c = 0; c < point; c++) {
-            result[c] = output_dir[c];
-        }
-
-        int h = 0;
-        for (int c = 0; c < len; c++) {
-            result[point + c] = list_files[j].absolut_path[len_input_path + h++];
-        }
+        char* new_file_path = get_new_file_path(input_path, output_dir, list_files[j].absolut_path);
 
         if (!is_file(list_files[j])) {
-            mkdir(result, list_files[j].file_info.st_mode);
+            mkdir(new_file_path, list_files[j].file_info.st_mode);
             get_files(list_files[j].absolut_path, key);
         }
 
         else {
-            write_file(list_files[j], result);
+            write_file(list_files[j], new_file_path);
         }
     }
 

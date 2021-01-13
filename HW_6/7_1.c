@@ -7,6 +7,22 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
+/***
+ * Отсортировать в заданном каталоге (аргумент 1 командной строки)
+ * и во всех его подкаталогах файлы по следующим критериям
+ * (аргумент 2 командной строки, задаётся в виде целого числа):
+ * 1 – по размеру файла, 2 – по имени файла.
+ * Записать файлы в порядке сортировки в новый каталог
+ * (аргумент 3 командной строки).
+ * После записи каждого файла выводить на консоль
+ * полный путь каталога, имя файла, размер файла.
+ ***/
+
+char* output_dir = "";
+char* input_path = "";
+int point = 1;
+int len_input_path = 1;
+
 char* concat(char *str1, char *str2) {
 
     size_t len1 = strlen(str1);
@@ -35,10 +51,7 @@ void println(char* str) {
     printf("\n");
 }
 
-struct MYFILE get_file(struct MYFILE myfile, char *path, char *file_name) {
-
-    myfile.file_path = path;
-    myfile.file_name = file_name;
+struct MYFILE get_file(struct MYFILE myfile) {
 
     char* absolut_path_to_file = concat(concat(myfile.file_path, "/"), myfile.file_name);
     myfile.absolut_path = absolut_path_to_file;
@@ -51,21 +64,11 @@ struct MYFILE get_file(struct MYFILE myfile, char *path, char *file_name) {
     return myfile;
 }
 
-int is_dir(char* fileName) {
-    for (int i = 0; i < strlen(fileName); i++) {
-        if (fileName[i] == '.') {
-            return 0;
-        }
-    }
-    return 1;
+int is_file(struct MYFILE myfile) {
+    return S_ISREG(myfile.file_info.st_mode);
 }
 
 void sort_files(struct MYFILE list_files[], int len, int sort) {
-
-    /*
-     * Сортировка файлов по ключу
-     * (по размеру - 1, по имени - 2)
-    */
 
     int bool = 0;
 
@@ -95,79 +98,135 @@ void sort_files(struct MYFILE list_files[], int len, int sort) {
 
 }
 
-void write_files(struct MYFILE list_files[], int len, char *new_path) {
+void write_file(struct MYFILE myfile, char *new_path) {
 
     FILE *file_in, *file_out;
     char *file_name_in, *file_name_out;
     char buf[1024];
-    for (int i = 0; i < len; i++) {
-        file_name_in = concat(concat(list_files[i].file_path, "/"), list_files[i].file_name);
+    file_name_in = concat(concat(myfile.file_path, "/"), myfile.file_name);
+    file_name_out = new_path;
 
-        if (is_dir(file_name_in)) {
-            continue;
-        }
-
-        file_name_out = concat(concat(new_path, "/"), list_files[i].file_name);
-        file_in = fopen(file_name_in, "r");
-        file_out = fopen(file_name_out, "w");
-        while(fgets(buf, 1024, file_in) != NULL) {
-            fprintf(file_out, "%s", buf);
-        }
-        fclose(file_in);
-        fclose(file_out);
-        fprintf(stdout,
-                "%s%s - %li byte\n",
-                new_path,
-                list_files[i].file_name,
-                list_files[i].file_info.st_size);
+    file_in = fopen(file_name_in, "r");
+    file_out = fopen(file_name_out, "w");
+    while(fgets(buf, 1024, file_in) != NULL) {
+        fprintf(file_out, "%s", buf);
     }
+    fclose(file_in);
+    fclose(file_out);
+    fprintf(stdout,
+            "%s - %s - %li byte\n",
+            file_name_out, myfile.file_name,
+            myfile.file_info.st_size);
 }
 
-int k = 0;
+int get_files_count_in_dir(char* path_to_dir) {
 
-void get_files(struct MYFILE list_files[], char *path) {
+    int count_files_in_dir = 0;
+
+    DIR* dir;
+    dir = opendir(path_to_dir);
+    struct dirent *one_file;
+
+    while ((one_file = readdir(dir)) != NULL) {
+        count_files_in_dir++;
+    }
+
+    closedir(dir);
+
+    // - .
+    // - ..
+    return count_files_in_dir - 2;
+}
+
+int is_system(char* name_file) {
+    if (strlen(name_file) == 1 && name_file[0] == '.') {
+        return 1;
+    }
+
+    if (strlen(name_file) == 2 && name_file[0] == '.' && name_file[1] == '.') {
+        return 1;
+    }
+
+    return 0;
+}
+
+void get_files(char *path, int key) {
+
+    const int size = get_files_count_in_dir(path);
+
+    struct MYFILE list_files[size];
 
     DIR* dir;
     struct dirent *one_file;
     dir = opendir(path);
-    int result;
     char *name_file;
 
+    int i = 0;
+
+    // считываем все файлы в директории
+    // и складываем их в массив
     while ((one_file = readdir(dir)) != NULL) {
         name_file = one_file->d_name;
-        if (name_file[0] == '.') {
+
+        // if name_file == "." or name_file == ".."
+        if (is_system(name_file)) {
             continue;
         }
+
         struct MYFILE myfile;
         myfile.file_name = name_file;
         myfile.file_path = path;
-        list_files[k++] = get_file(myfile, path, name_file);
-        if (is_dir(list_files[k - 1].absolut_path)) {
+        list_files[i++] = get_file(myfile);
+    }
 
-            println("-----");
-            println(list_files[k - 1].file_name);
-            println(list_files[k - 1].file_path);
-            println("------");
+    // сортируем
+    sort_files(list_files, i, key);
 
-            mkdir("/home/yuliya/Desktop/out/2", list_files[k-1].file_info.st_mode);
+    struct MYFILE list_dirs[size];
 
-            get_files(list_files, list_files[k - 1].absolut_path);
+    for (int j = 0; j < i; j++) {
+
+        char* abs_path = list_files[j].absolut_path;
+
+        int len = strlen(abs_path);
+
+        int len_out = len - len_input_path;
+
+        char result[len_out];
+
+        for (int c = 0; c < point; c++) {
+            result[c] = output_dir[c];
+        }
+
+        int h = 0;
+        for (int c = 0; c < len; c++) {
+            result[point + c] = list_files[j].absolut_path[len_input_path + h++];
+        }
+
+        if (!is_file(list_files[j])) {
+            mkdir(result, list_files[j].file_info.st_mode);
+            get_files(list_files[j].absolut_path, key);
+        }
+
+        else {
+            write_file(list_files[j], result);
         }
     }
 
 }
 
-int main() {
+int main(int argc, char *argv[]) {
 
-    struct MYFILE list_files[10];
+    char* input_dir = argv[1];
+    int key = atoi(argv[2]);
+    char* out_dir = argv[3];
 
-    get_files(list_files, "/home/yuliya/Desktop/test");
-    // sort_files(list_files, k, 1);
-    // write_files(list_files, k, "/home/yuliya/Desktop/out/");
+    output_dir = out_dir;
+    point = strlen(output_dir);
+    input_path = input_dir;
+    len_input_path = strlen(input_path);
 
-    for (int i = 0; i < k; i++) {
-        println(list_files[i].file_name);
-    }
+    get_files(input_path, key);
 
     return 0;
 }
